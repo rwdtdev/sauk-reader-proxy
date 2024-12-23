@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AccountedItem {
+  uid             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt       DateTime            @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime            @db.Timestamp(6)
+  identifier      String
+  parentId        String?
+  reportId        String              @db.Uuid
+  status          AccountedItemStatus
+  InventoryReport InventoryReport     @relation(fields: [reportId], references: [uid])
+}
+
+model Camera {
+  uid        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channelId  Int
+  name       String
+  locationId String   @db.Uuid
+  Location   Location @relation(fields: [locationId], references: [uid])
+}
+
+model EventSnapshot {
+  uid           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId       String
+  photo         Bytes?
+  snapshotJson  Json
+  person_events person_events @relation(fields: [eventId], references: [fullEventId])
+}
+
+model InventoryItem {
+  epc                 String            @id
+  createdAt           DateTime          @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime          @db.Timestamp(6)
+  isRoom              Boolean           @default(false)
+  name                String
+  address             String
+  uin                 String
+  inventoryNumber     String?
+  parentId            String?
+  isTransferAllowed   Boolean           @default(false)
+  InventoryItem       InventoryItem?    @relation("InventoryItemToInventoryItem", fields: [parentId], references: [epc])
+  other_InventoryItem InventoryItem[]   @relation("InventoryItemToInventoryItem")
+  InventoryReport     InventoryReport[]
+}
+
+model InventoryReport {
+  uid           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  roomId        String
+  createdAt     DateTime        @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime        @db.Timestamp(6)
+  AccountedItem AccountedItem[]
+  InventoryItem InventoryItem   @relation(fields: [roomId], references: [epc])
+}
+
+model LeaveRequest {
+  uid                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                    String    @db.Uuid
+  leaveAt                   DateTime  @db.Timestamp(6)
+  returnAt                  DateTime  @db.Timestamp(6)
+  actualLeaveAt             DateTime? @db.Timestamp(6)
+  actualReturnAt            DateTime? @db.Timestamp(6)
+  createdAt                 DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt                 DateTime  @db.Timestamp(6)
+  leaveReason               String    @default("Перемещение ТМЦ")
+  inventoryItemsComment     String    @default("Запрос от руководства")
+  inventoryItemsDestination String    @default("Офис на БХ")
+  epcs                      String[]
+  User                      User      @relation(fields: [userId], references: [uid])
+}
+
+model Location {
+  uid    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name   String
+  Camera Camera[]
+}
+
+model StatScanerLog {
+  uid       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventTime DateTime @default(now()) @db.Timestamp(6)
+  antennaId Int
+  rssi      Int
+  epc       String
+  userUid   String?  @db.Uuid
+  User      User?    @relation(fields: [userUid], references: [uid])
+
+  @@index([epc])
+}
+
+model User {
+  uid              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName         String?         @db.VarChar(100)
+  email            String          @db.VarChar(100)
+  phone            String?         @db.VarChar(18)
+  passwordDigest   String          @db.VarChar
+  createdAt        DateTime        @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime        @db.Timestamp(6)
+  kipodPersonId    String?         @unique
+  telegramUserbane String?         @unique
+  LeaveRequest     LeaveRequest[]
+  StatScanerLog    StatScanerLog[]
+  person_events    person_events[]
+}
+
+model person_events {
+  uid            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId        String
+  fullEventId    String          @unique
+  startAt        DateTime
+  endAt          DateTime
+  personId       String
+  userUid        String?         @db.Uuid
+  faceSimilarity String?
+  channelName    String?
+  channelId      Int?
+  createdAt      DateTime        @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime        @db.Timestamp(6)
+  EventSnapshot  EventSnapshot[]
+  User           User            @relation(fields: [personId], references: [kipodPersonId])
+}
+
+model StatScannerLog2 {
+  uid     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timeIn  DateTime @default(now()) @db.Timestamp(6)
+  timeOut DateTime @default(now()) @db.Timestamp(6)
+  epc     String
+}
+
+enum AccountedItemStatus {
+  ACCOUNTED
+  NOT_FOUND
+  NOT_IN_THE_SYSTEM
+}
