@@ -16,6 +16,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 app.post('/', async (req, res) => {
+  console.log('req.body', req.body);
   await fetch('http://localhost:3000/api/rest/sauk-reader', {
     method: 'POST',
     headers: {
